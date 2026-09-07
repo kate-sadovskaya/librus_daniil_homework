@@ -1,0 +1,64 @@
+name: Librus homework notifier
+
+on:
+  schedule:
+    - cron: '0 * * * *'
+  workflow_dispatch: {}
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check schedule window (Europe/Warsaw, 8-20 every 2h)
+        id: check
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          hour=$(TZ='Europe/Warsaw' date +%H)
+          hour=$((10#$hour))
+          if [ "$hour" -ge 8 ] && [ "$hour" -le 20 ] && [ $((hour % 2)) -eq 0 ]; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout
+        if: steps.check.outputs.should_run == 'true'
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        if: steps.check.outputs.should_run == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        if: steps.check.outputs.should_run == 'true'
+        run: pip install -r requirements.txt
+
+      - name: Restore state cache
+        if: steps.check.outputs.should_run == 'true'
+        uses: actions/cache/restore@v4
+        with:
+          path: state/seen_daniil.json
+          key: librus-daniil-state-${{ github.run_id }}
+          restore-keys: |
+            librus-daniil-state-
+
+      - name: Run notifier
+        if: steps.check.outputs.should_run == 'true'
+        env:
+          LIBRUS_USERNAME_DANIIL: ${{ secrets.LIBRUS_USERNAME_DANIIL }}
+          LIBRUS_PASSWORD_DANIIL: ${{ secrets.LIBRUS_PASSWORD_DANIIL }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python main.py
+
+      - name: Save state cache
+        if: always() && steps.check.outputs.should_run == 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: state/seen_daniil.json
+          key: librus-daniil-state-${{ github.run_id }}

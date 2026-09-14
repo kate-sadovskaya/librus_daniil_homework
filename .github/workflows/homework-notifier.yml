@@ -1,8 +1,12 @@
 name: Librus homework notifier
 
 on:
-  schedule:
-    - cron: '0 * * * *'
+  # Cron trigger disabled 2026-09-14: Librus appears to block/throttle traffic
+  # from GitHub-hosted runner (Azure) IPs — requests to api.librus.pl reliably
+  # time out. See CLAUDE.md "Известная проблема". Left as workflow_dispatch
+  # only so it can be re-tested manually without spamming failed scheduled runs.
+  # schedule:
+  #   - cron: '0 * * * *'
   workflow_dispatch: {}
 
 jobs:
